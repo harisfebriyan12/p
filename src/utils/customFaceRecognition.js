@@ -212,7 +212,7 @@ export const compareFaceFingerprints = (fingerprint1, fingerprint2, threshold = 
  * @param {Blob} imageBlob 
  * @returns {Promise<{fingerprint: string, isValidFace: boolean}>}
  */
-export const processImageBlob = (imageBlob) => {
+const processImageBlob = (imageBlob) => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
@@ -311,7 +311,7 @@ export const processImageUrl = (imageUrl) => {
  * @param {HTMLCanvasElement} canvas 
  * @returns {ImageData|null}
  */
-export const extractFaceRegion = (canvas) => {
+const extractFaceRegion = (canvas) => {
   const ctx = canvas.getContext('2d');
   const { width, height } = canvas;
   

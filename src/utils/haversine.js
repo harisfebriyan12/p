@@ -6,7 +6,7 @@
  * @param {number} lon2 - Longitude of second point
  * @returns {number} Distance in meters
  */
-export function haversine(lat1, lon1, lat2, lon2) {
+function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371e3; // Earth's radius in meters
   const toRad = (x) => (x * Math.PI) / 180;
   

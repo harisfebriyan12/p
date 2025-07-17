@@ -15,6 +15,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { supabase } from '../utils/supabaseClient';
+import Swal from '../pages/swal.js';
 
 const AdminSidebar = ({ user, profile }) => {
   const navigate = useNavigate();
@@ -25,7 +26,7 @@ const AdminSidebar = ({ user, profile }) => {
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
-      await window.Swal.fire({
+      await Swal.fire({
         icon: 'success',
         title: 'Logout Berhasil',
         text: 'Anda telah berhasil logout.'

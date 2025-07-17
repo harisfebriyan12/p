@@ -205,7 +205,7 @@ if (isPlaceholderUrl || isPlaceholderKey) {
 export { supabase };
 
 // Enhanced auth helper with better error handling
-export const handleAuthError = async (error) => {
+const handleAuthError = async (error) => {
   if (error && (
     error.message?.includes('user_not_found') || 
     error.message?.includes('JWT') ||
@@ -331,7 +331,7 @@ export const getCameraVerificationSettings = async (forceRefresh = false) => {
 };
 
 // Default office location (fallback)
-export const OFFICE_LOCATION = {
+const OFFICE_LOCATION = {
   latitude: -6.200000,
   longitude: 106.816666,
   radius: 100
@@ -398,7 +398,7 @@ export const isSupabaseConfigured = () => {
 };
 
 // Enhanced session management
-export const refreshSession = async () => {
+const refreshSession = async () => {
   try {
     const { data, error } = await supabase.auth.refreshSession();
     if (error) {
@@ -414,7 +414,7 @@ export const refreshSession = async () => {
 };
 
 // Safe user getter with error handling
-export const getCurrentUser = async () => {
+const getCurrentUser = async () => {
   try {
     const { data: { user }, error } = await supabase.auth.getUser();
     if (error) {

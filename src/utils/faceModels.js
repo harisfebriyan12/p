@@ -63,7 +63,7 @@ export const loadFaceModels = async (options = {}) => {
  * Check if models are loaded
  * @returns {boolean} True if models are ready
  */
-export const areModelsLoaded = () => {
+const areModelsLoaded = () => {
   return modelsLoaded;
 };
 
@@ -72,7 +72,7 @@ export const areModelsLoaded = () => {
  * @param {HTMLImageElement|HTMLVideoElement|HTMLCanvasElement} imageElement 
  * @returns {Promise<Float32Array|null>} Face descriptor or null
  */
-export const getFaceDescriptor = async (imageElement) => {
+const getFaceDescriptor = async (imageElement) => {
   try {
     if (!modelsLoaded) {
       await loadFaceModels();
@@ -97,7 +97,7 @@ export const getFaceDescriptor = async (imageElement) => {
  * @param {number} threshold Similarity threshold (0.0-1.0, lower = more similar)
  * @returns {boolean} True if faces match
  */
-export const compareFaceDescriptors = (descriptor1, descriptor2, threshold = 0.6) => {
+const compareFaceDescriptors = (descriptor1, descriptor2, threshold = 0.6) => {
   if (!descriptor1 || !descriptor2) {
     return false;
   }
@@ -116,7 +116,7 @@ export const compareFaceDescriptors = (descriptor1, descriptor2, threshold = 0.6
  * @param {HTMLImageElement|HTMLVideoElement|HTMLCanvasElement} imageElement 
  * @returns {Promise<number>} Number of faces detected
  */
-export const detectFaceCount = async (imageElement) => {
+const detectFaceCount = async (imageElement) => {
   try {
     if (!modelsLoaded) {
       await loadFaceModels();
@@ -139,7 +139,7 @@ export const detectFaceCount = async (imageElement) => {
  * @param {string} imageUrl 
  * @returns {Promise<Float32Array|null>}
  */
-export const getFaceDescriptorFromUrl = async (imageUrl) => {
+const getFaceDescriptorFromUrl = async (imageUrl) => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
