@@ -1,73 +1,101 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
+  Users, 
   Plus, 
   Edit, 
-  Lock, 
-  ToggleLeft, 
-  ToggleRight, 
+  Trash2, 
   Search, 
-  Save,
-  X,
-  Shield,
-  Users,
-  User,
+  Filter,
+  Download,
+  Upload,
+  MoreVertical,
+  Eye,
   Mail,
   Phone,
-  Camera,
+  MapPin,
+  Calendar,
+  Briefcase,
+  Building,
+  CreditCard,
+  Shield,
+  Crown,
+  User,
   CheckCircle,
+  XCircle,
   AlertTriangle,
-  XCircle
+  Save,
+  X,
+  Camera,
+  Star,
+  Award,
+  Target,
+  TrendingUp,
+  Clock,
+  DollarSign,
+  FileText,
+  Send,
+  Bell,
+  Settings,
+  RefreshCw,
+  UserPlus,
+  UserCheck,
+  UserX,
+  Zap,
+  Sparkles
 } from 'lucide-react';
-import { supabase, uploadFile, getFileUrl } from '../utils/supabaseClient';
-import Swal from './swal';
-import ProfileModal from '../components/ProfileModal';
-import CustomFaceCapture from '../components/CustomFaceCapture';
+import { supabase } from '../utils/supabaseClient';
 import AdminSidebar from '../components/AdminSidebar';
+import ProfileModal from '../components/ProfileModal';
+import WarningLetterGenerator from '../components/WarningLetterGenerator';
 
 const UserManagement = () => {
   const navigate = useNavigate();
-  const [users, setUsers] = useState([]);
-  const [positions, setPositions] = useState([]);
-  const [banks, setBanks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [contentLoading, setContentLoading] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [modalMode, setModalMode] = useState('add'); // 'add', 'edit', or 'password'
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterDepartment, setFilterDepartment] = useState('');
-  const [filterRole, setFilterRole] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
   const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [contentLoading, setContentLoading] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [positions, setPositions] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [banks, setBanks] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterRole, setFilterRole] = useState('');
+  const [filterDepartment, setFilterDepartment] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [selectedUser, setSelectedUser] = useState(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showWarningModal, setShowWarningModal] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+  const [stats, setStats] = useState({
+    total: 0,
+    active: 0,
+    inactive: 0,
+    admins: 0,
+    employees: 0
+  });
 
   // Form state
   const [formData, setFormData] = useState({
-    id: '',
     name: '',
+    full_name: '',
     email: '',
-    password: '',
     phone: '',
-    location: '',
-    title: '',
-    bio: '',
     role: 'karyawan',
     position_id: '',
-    employee_id: '',
     department: '',
+    employee_id: '',
     salary: 0,
+    status: 'active',
+    join_date: new Date().toISOString().split('T')[0],
+    contract_type: 'permanent',
     bank_id: '',
     bank_account_number: '',
-    bank_account_name: '',
-    status: 'active'
+    bank_account_name: ''
   });
-  const [facePhoto, setFacePhoto] = useState(null);
-  const [faceFingerprint, setFaceFingerprint] = useState(null);
-  const [step, setStep] = useState(1);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
 
   useEffect(() => {
     checkAccess();
@@ -94,7 +122,13 @@ const UserManagement = () => {
 
       setCurrentUser(user);
       setProfile(profile);
-      await Promise.all([fetchUsers(), fetchPositions(), fetchBanks()]);
+      
+      await Promise.all([
+        fetchUsers(),
+        fetchPositions(),
+        fetchDepartments(),
+        fetchBanks()
+      ]);
     } catch (error) {
       console.error('Error checking access:', error);
       navigate('/login');
@@ -111,12 +145,23 @@ const UserManagement = () => {
         .select(`
           *,
           positions(name_id, department, base_salary),
-          bank_info(bank_name, bank_logo)
+          bank_info(bank_name, bank_logo),
+          employee_salaries(daily_salary, payment_status)
         `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+      
       setUsers(data || []);
+      
+      // Calculate stats
+      const total = data?.length || 0;
+      const active = data?.filter(user => user.status === 'active').length || 0;
+      const inactive = data?.filter(user => user.status !== 'active').length || 0;
+      const admins = data?.filter(user => user.role === 'admin').length || 0;
+      const employees = data?.filter(user => user.role === 'karyawan').length || 0;
+      
+      setStats({ total, active, inactive, admins, employees });
     } catch (error) {
       console.error('Error fetching users:', error);
       setError('Gagal memuat data pengguna');
@@ -140,6 +185,21 @@ const UserManagement = () => {
     }
   };
 
+  const fetchDepartments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('departments')
+        .select('*')
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+      setDepartments(data || []);
+    } catch (error) {
+      console.error('Error fetching departments:', error);
+    }
+  };
+
   const fetchBanks = async () => {
     try {
       const { data, error } = await supabase
@@ -157,972 +217,626 @@ const UserManagement = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    
-    if (name === 'position_id') {
-      const selectedPosition = positions.find(p => p.id === value);
-      if (selectedPosition) {
-        const positionCode = selectedPosition.name_id.substring(0, 3).toUpperCase();
-        const timestamp = Date.now().toString().slice(-4);
-        const employeeId = modalMode === 'add' ? `${positionCode}${timestamp}` : formData.employee_id;
-        
-        setFormData(prev => ({
-          ...prev,
-          position_id: value,
-          title: selectedPosition.name_id,
-          department: selectedPosition.department || '',
-          salary: selectedPosition.base_salary || 0,
-          employee_id: employeeId
-        }));
-      } else {
-        setFormData(prev => ({
-          ...prev,
-          position_id: value,
-          title: '',
-          department: '',
-          salary: 0,
-          employee_id: ''
-        }));
-      }
-    } else if (name === 'name' || name === 'full_name') {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value,
-        bank_account_name: value
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-    }
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
-  const generateEmployeeId = (positionName) => {
-    const positionCode = positionName ? positionName.substring(0, 3).toUpperCase() : 'EMP';
-    const timestamp = Date.now().toString().slice(-4);
-    return `${positionCode}${timestamp}`;
-  };
-
-  const handleFaceCapture = (photoBlob, fingerprint) => {
-    setFacePhoto(photoBlob);
-    setFaceFingerprint(fingerprint);
-    console.log('✅ Face captured', { photoBlob, fingerprint });
-  };
-
-  const handleBasicInfoSubmit = (e) => {
-    e.preventDefault();
-    if (modalMode === 'add' && formData.password.length < 6) {
-      Swal.fire({ icon: 'error', title: 'Gagal', text: 'Password minimal 6 karakter' });
-      return;
-    }
-    if (!formData.position_id) {
-      Swal.fire({ icon: 'error', title: 'Gagal', text: 'Silakan pilih jabatan' });
-      return;
-    }
-    if (formData.role === 'admin' || modalMode === 'edit') {
-      modalMode === 'add' ? handleCreateUser() : handleUpdateUser();
-    } else {
-      setStep(2);
-    }
-  };
-
-  const handleCreateUser = async () => {
-    if (formData.role !== 'admin' && !facePhoto) {
-      Swal.fire({ icon: 'error', title: 'Gagal', text: 'Silakan ambil foto wajah terlebih dahulu' });
-      return;
-    }
-    if (formData.role !== 'admin' && !faceFingerprint) {
-      Swal.fire({ icon: 'error', title: 'Gagal', text: 'Fingerprint wajah tidak terdeteksi, silakan ulangi pengambilan foto.' });
-      return;
-    }
-    setIsSubmitting(true);
-    try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            name: formData.name,
-            role: formData.role
-          }
-        }
-      });
-      if (authError) throw authError;
-      if (!authData.user) {
-        throw new Error('Pendaftaran gagal');
-      }
-      const userId = authData.user.id;
-      let photoUrl = null;
-      if (formData.role !== 'admin' && facePhoto) {
-        const fileName = `${userId}-face-${Date.now()}.jpg`;
-        await uploadFile(facePhoto, 'face-photos', fileName);
-        photoUrl = getFileUrl('face-photos', fileName);
-      }
-      const profileData = {
-        id: userId,
-        name: formData.name,
-        full_name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        location: formData.location,
-        title: formData.title,
-        bio: formData.bio || `${getRoleDisplayName(formData.role)} di sistem absensi`,
-        avatar_url: photoUrl,
-        role: formData.role,
-        position_id: formData.position_id,
-        employee_id: formData.employee_id,
-        department: formData.department,
-        salary: formData.salary,
-        bank_id: formData.bank_id || null,
-        bank_account_number: formData.bank_account_number || null,
-        bank_account_name: formData.bank_account_name || formData.name,
-        is_face_registered: formData.role === 'admin' ? true : !!photoUrl,
-        status: 'active',
-        join_date: new Date().toISOString().split('T')[0],
-        contract_start_date: new Date().toISOString().split('T')[0],
-        contract_type: 'permanent',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert([profileData]);
-      if (profileError) {
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update(profileData)
-          .eq('id', userId);
-        if (updateError) {
-          throw new Error('Gagal membuat profil user');
-        }
-      }
-      const salaryData = {
-        user_id: userId,
-        daily_salary: formData.salary / 22,
-        overtime_rate: 1.5,
-        bonus: 0,
-        deduction: 0,
-        effective_date: new Date().toISOString().split('T')[0],
-        is_active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      const { error: salaryError } = await supabase
-        .from('employee_salaries')
-        .insert([salaryData]);
-      Swal.fire({
-        icon: 'success',
-        title: 'Berhasil',
-        html: `<b>${formData.name}</b> (${getRoleDisplayName(formData.role)}) berhasil ditambahkan!`,
-        showConfirmButton: true
-      });
-      resetForm();
-      await fetchUsers();
-    } catch (err) {
-      Swal.fire({ icon: 'error', title: 'Gagal', text: err.message || 'Terjadi kesalahan saat membuat user' });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleUpdateUser = async () => {
-    setIsSubmitting(true);
-    try {
-      let photoUrl = formData.avatar_url;
-      if (formData.role !== 'admin' && facePhoto) {
-        const fileName = `${formData.id}-face-${Date.now()}.jpg`;
-        await uploadFile(facePhoto, 'face-photos', fileName);
-        photoUrl = getFileUrl('face-photos', fileName);
-      }
-      const profileData = {
-        name: formData.name,
-        full_name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        location: formData.location,
-        title: formData.title,
-        bio: formData.bio || `${getRoleDisplayName(formData.role)} di sistem absensi`,
-        avatar_url: photoUrl,
-        role: formData.role,
-        position_id: formData.position_id,
-        employee_id: formData.employee_id,
-        department: formData.department,
-        salary: formData.salary,
-        bank_id: formData.bank_id || null,
-        bank_account_number: formData.bank_account_number || null,
-        bank_account_name: formData.bank_account_name || formData.name,
-        is_face_registered: formData.role === 'admin' ? true : !!photoUrl,
-        status: formData.status,
-        updated_at: new Date().toISOString()
-      };
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update(profileData)
-        .eq('id', formData.id);
-      if (profileError) throw profileError;
-      const salaryData = {
-        user_id: formData.id,
-        daily_salary: formData.salary / 22,
-        overtime_rate: 1.5,
-        bonus: 0,
-        deduction: 0,
-        effective_date: new Date().toISOString().split('T')[0],
-        is_active: true,
-        updated_at: new Date().toISOString()
-      };
-      const { error: salaryError } = await supabase
-        .from('employee_salaries')
-        .update(salaryData)
-        .eq('user_id', formData.id)
-        .eq('is_active', true);
-      if (salaryError && !salaryError.message.includes('0 rows')) {
-        const { error: insertError } = await supabase
-          .from('employee_salaries')
-          .insert([salaryData]);
-        if (insertError) throw insertError;
-      }
-      Swal.fire({
-        icon: 'success',
-        title: 'Berhasil',
-        html: `<b>${formData.name}</b> berhasil diperbarui!`,
-        showConfirmButton: true
-      });
-      resetForm();
-      await fetchUsers();
-    } catch (err) {
-      Swal.fire({ icon: 'error', title: 'Gagal', text: err.message || 'Terjadi kesalahan saat memperbarui user' });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleResetPassword = async () => {
-    if (formData.password.length < 6) {
-      Swal.fire({ icon: 'error', title: 'Gagal', text: 'Password baru minimal 6 karakter' });
-      return;
-    }
-    setIsSubmitting(true);
-    try {
-      const response = await fetch('https://<your-project-ref>.supabase.co/functions/v1/reset-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabase.auth.getSession().then(({ data }) => data.session?.access_token)}`
-        },
-        body: JSON.stringify({
-          user_id: formData.id,
-          new_password: formData.password,
-          admin_id: currentUser.id
-        })
-      });
-
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || 'Gagal mereset password');
-      }
-
-      Swal.fire({
-        icon: 'success',
-        title: 'Berhasil',
-        text: `Password untuk ${formData.name} berhasil diperbarui!`,
-        showConfirmButton: true
-      });
-      resetForm();
-    } catch (err) {
-      Swal.fire({ icon: 'error', title: 'Gagal', text: err.message || 'Terjadi kesalahan saat mereset password' });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleToggleStatus = async (userId, currentStatus, userName) => {
-    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
-    const actionText = newStatus === 'active' ? 'mengaktifkan' : 'menonaktifkan';
-    const result = await Swal.fire({
-      title: `${newStatus === 'active' ? 'Aktifkan' : 'Nonaktifkan'} User?`,
-      text: `Apakah Anda yakin ingin ${actionText} user ${userName}?`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
-      confirmButtonText: `Ya, ${actionText}`,
-      cancelButtonText: 'Batal'
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      full_name: '',
+      email: '',
+      phone: '',
+      role: 'karyawan',
+      position_id: '',
+      department: '',
+      employee_id: '',
+      salary: 0,
+      status: 'active',
+      join_date: new Date().toISOString().split('T')[0],
+      contract_type: 'permanent',
+      bank_id: '',
+      bank_account_number: '',
+      bank_account_name: ''
     });
-    if (!result.isConfirmed) return;
+    setEditingUser(null);
+    setShowAddModal(false);
+    setError(null);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(null);
     setContentLoading(true);
+
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
-        .eq('id', userId);
-      if (error) throw error;
+      if (editingUser) {
+        // Update existing user
+        const { error } = await supabase
+          .from('profiles')
+          .update({
+            ...formData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', editingUser.id);
+
+        if (error) throw error;
+        setSuccess('Pengguna berhasil diperbarui!');
+      } else {
+        // Create new user (this would typically be done through auth.signUp)
+        setError('Pembuatan pengguna baru harus dilakukan melalui halaman registrasi');
+        return;
+      }
+
+      resetForm();
       await fetchUsers();
-      Swal.fire({
-        icon: 'success',
-        title: 'Berhasil',
-        text: `User ${userName} berhasil ${newStatus === 'active' ? 'diaktifkan' : 'dinonaktifkan'}`
-      });
+      setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
-      Swal.fire({ icon: 'error', title: 'Gagal', text: `Gagal ${actionText} user` });
+      console.error('Error saving user:', error);
+      setError('Gagal menyimpan pengguna: ' + error.message);
     } finally {
       setContentLoading(false);
     }
   };
 
-  const resetForm = () => {
+  const handleEdit = (user) => {
     setFormData({
-      id: '',
-      name: '',
-      email: '',
-      password: '',
-      phone: '',
-      location: '',
-      title: '',
-      bio: '',
-      role: 'karyawan',
-      position_id: '',
-      employee_id: '',
-      department: '',
-      salary: 0,
-      bank_id: '',
-      bank_account_number: '',
-      bank_account_name: '',
-      status: 'active'
-    });
-    setFacePhoto(null);
-    setFaceFingerprint(null);
-    setStep(1);
-    setShowModal(false);
-    setModalMode('add');
-    setError(null);
-    setSuccess(null);
-  };
-
-  const handleEditUser = (user) => {
-    setFormData({
-      id: user.id,
-      name: user.name,
-      email: user.email,
+      name: user.name || '',
+      full_name: user.full_name || '',
+      email: user.email || '',
       phone: user.phone || '',
-      location: user.location || '',
-      title: user.title || user.positions?.name_id || '',
-      bio: user.bio || '',
-      role: user.role,
+      role: user.role || 'karyawan',
       position_id: user.position_id || '',
+      department: user.department || '',
       employee_id: user.employee_id || '',
-      department: user.department || user.positions?.department || '',
-      salary: user.salary || user.positions?.base_salary || 0,
+      salary: user.salary || 0,
+      status: user.status || 'active',
+      join_date: user.join_date || new Date().toISOString().split('T')[0],
+      contract_type: user.contract_type || 'permanent',
       bank_id: user.bank_id || '',
       bank_account_number: user.bank_account_number || '',
-      bank_account_name: user.bank_account_name || user.name,
-      status: user.status || 'active',
-      avatar_url: user.avatar_url || ''
+      bank_account_name: user.bank_account_name || ''
     });
-    setFacePhoto(null);
-    setFaceFingerprint(null);
-    setModalMode('edit');
-    setStep(1);
-    setShowModal(true);
+    setEditingUser(user);
+    setShowAddModal(true);
   };
 
-  const handleOpenPasswordModal = (user) => {
-    setFormData({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      password: '',
-      phone: '',
-      location: '',
-      title: '',
-      bio: '',
-      role: user.role,
-      position_id: '',
-      employee_id: '',
-      department: '',
-      salary: 0,
-      bank_id: '',
-      bank_account_number: '',
-      bank_account_name: '',
-      status: user.status
-    });
-    setModalMode('password');
-    setShowModal(true);
-  };
+  const handleDelete = async (userId) => {
+    if (!confirm('Apakah Anda yakin ingin menghapus pengguna ini?')) return;
 
-  const getRoleDisplayName = (role) => {
-    switch (role) {
-      case 'admin':
-        return 'Administrator';
-      case 'karyawan':
-        return 'Karyawan';
-      default:
-        return 'Karyawan';
+    setContentLoading(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
+
+      if (error) throw error;
+      setSuccess('Pengguna berhasil dihapus!');
+      await fetchUsers();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      setError('Gagal menghapus pengguna: ' + error.message);
+    } finally {
+      setContentLoading(false);
     }
+  };
+
+  const handleViewProfile = (user) => {
+    setSelectedUser(user);
+    setShowProfileModal(true);
+  };
+
+  const handleGenerateWarning = (user) => {
+    setSelectedUser(user);
+    setShowWarningModal(true);
+  };
+
+  const exportToCSV = () => {
+    if (filteredUsers.length === 0) return;
+
+    const headers = [
+      'Nama', 'Email', 'Telepon', 'Jabatan', 'Departemen', 'Status', 'Tanggal Bergabung'
+    ];
+
+    const csvContent = [
+      headers,
+      ...filteredUsers.map(user => [
+        user.name || '',
+        user.email || '',
+        user.phone || '',
+        user.positions?.name_id || user.title || '',
+        user.department || '',
+        user.status || '',
+        user.join_date || ''
+      ])
+    ].map(row => row.join(',')).join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `users_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const getRoleIcon = (role) => {
     switch (role) {
-      case 'admin':
-        return <Shield className="h-4 w-4" />;
-      default:
-        return <User className="h-4 w-4" />;
+      case 'admin': return <Shield className="h-4 w-4" />;
+      case 'kepala': return <Crown className="h-4 w-4" />;
+      default: return <User className="h-4 w-4" />;
     }
   };
 
   const getRoleColor = (role) => {
     switch (role) {
-      case 'admin':
-        return 'bg-blue-100 text-blue-800';
-      default:
-        return 'bg-green-100 text-green-800';
+      case 'admin': return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'kepala': return 'bg-blue-100 text-blue-800 border-blue-200';
+      default: return 'bg-green-100 text-green-800 border-green-200';
     }
   };
 
   const getStatusColor = (status) => {
-    return status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
-  };
-
-  const canManageUser = (userId) => {
-    if (currentUser?.id === userId) return false;
-    return true;
-  };
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0
-    }).format(amount);
-  };
-
-  const getDepartments = () => {
-    const departments = [...new Set(users.map(u => u.department || u.positions?.department).filter(Boolean))];
-    return departments;
+    switch (status) {
+      case 'active': return 'bg-green-100 text-green-800 border-green-200';
+      case 'inactive': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'terminated': return 'bg-red-100 text-red-800 border-red-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
   };
 
   const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (user.employee_id && user.employee_id.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesDepartment = filterDepartment === '' || 
-                             user.department === filterDepartment || 
-                             user.positions?.department === filterDepartment;
-    const matchesRole = filterRole === '' || user.role === filterRole;
+    const matchesSearch = 
+      user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.employee_id?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    return matchesSearch && matchesDepartment && matchesRole;
+    const matchesRole = !filterRole || user.role === filterRole;
+    const matchesDepartment = !filterDepartment || user.department === filterDepartment;
+    const matchesStatus = !filterStatus || user.status === filterStatus;
+    
+    return matchesSearch && matchesRole && matchesDepartment && matchesStatus;
   });
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-flex space-x-1 text-blue-600">
-            <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-            <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-            <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+          <div className="relative">
+            <div className="w-20 h-20 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+            <div className="absolute inset-0 w-20 h-20 border-4 border-transparent border-t-purple-400 rounded-full animate-spin mx-auto" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
           </div>
-          <p className="text-gray-600 mt-4">Memuat data pengguna...</p>
+          <h3 className="text-xl font-semibold text-gray-800 mb-2">Memuat Data Pengguna</h3>
+          <p className="text-gray-600">Sedang mengumpulkan informasi karyawan...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
-      <AdminSidebar user={currentUser} profile={profile} className="w-full md:w-64 md:fixed md:h-screen" />
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex">
+      {/* Sidebar */}
+      <AdminSidebar user={currentUser} profile={profile} />
 
-      <div className="flex-1 md:ml-64 transition-all duration-300 ease-in-out">
-        <div className="bg-white shadow-sm border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-4 gap-4">
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Kelola Pengguna</h1>
-                <p className="text-sm text-gray-600">Tambah, edit, reset password, dan kelola status pengguna sistem</p>
+      {/* Main Content */}
+      <div className="flex-1 lg:ml-64 transition-all duration-300 ease-in-out">
+        {/* Enhanced Header */}
+        <div className="bg-white shadow-lg border-b border-gray-100 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 via-purple-600/5 to-indigo-600/5"></div>
+          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between py-6">
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <Users className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                    Kelola Karyawan
+                  </h1>
+                  <p className="text-gray-600 flex items-center space-x-2">
+                    <Sparkles className="h-4 w-4 text-yellow-500" />
+                    <span>Manajemen data karyawan dan pengguna sistem</span>
+                  </p>
+                </div>
               </div>
-              <button
-                onClick={() => { setModalMode('add'); setShowModal(true); }}
-                className="flex items-center justify-center space-x-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors w-full sm:w-auto"
-              >
-                <Plus className="h-5 w-5" />
-                <span>Tambah User</span>
-              </button>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => {
+                    setContentLoading(true);
+                    fetchUsers().finally(() => setContentLoading(false));
+                  }}
+                  className="flex items-center space-x-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200"
+                  title="Refresh Data"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  <span className="hidden sm:inline">Refresh</span>
+                </button>
+                <button
+                  onClick={exportToCSV}
+                  disabled={filteredUsers.length === 0}
+                  className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-md hover:shadow-lg"
+                >
+                  <Download className="h-4 w-4" />
+                  <span>Export CSV</span>
+                </button>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Tambah Karyawan</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Success/Error Messages */}
           {success && (
-            <div className="mb-6 p-4 bg-green-50 rounded-lg flex items-start space-x-3">
+            <div className="mb-6 p-4 bg-green-50 rounded-xl border border-green-200 flex items-start space-x-3 animate-slideInUp">
               <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
-              <p className="text-green-700">{success}</p>
+              <div>
+                <p className="text-green-700 font-medium">Berhasil!</p>
+                <p className="text-green-600 text-sm mt-1">{success}</p>
+              </div>
               <button 
                 onClick={() => setSuccess(null)}
                 className="ml-auto text-green-500 hover:text-green-700"
               >
-                <XCircle className="h-4 w-4" />
+                <X className="h-4 w-4" />
               </button>
             </div>
           )}
 
           {error && (
-            <div className="mb-6 p-4 bg-red-50 rounded-lg flex items-start space-x-3">
+            <div className="mb-6 p-4 bg-red-50 rounded-xl border border-red-200 flex items-start space-x-3 animate-slideInUp">
               <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
-              <p className="text-red-700">{error}</p>
+              <div>
+                <p className="text-red-700 font-medium">Error</p>
+                <p className="text-red-600 text-sm mt-1">{error}</p>
+              </div>
               <button 
                 onClick={() => setError(null)}
                 className="ml-auto text-red-500 hover:text-red-700"
               >
-                <XCircle className="h-4 w-4" />
+                <X className="h-4 w-4" />
               </button>
             </div>
           )}
 
-          <div className="bg-white rounded-lg shadow-md mb-6">
-            <div className="p-4">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Cari berdasarkan nama, email, atau ID karyawan..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                    />
-                  </div>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="w-full sm:w-40">
-                    <select
-                      value={filterDepartment}
-                      onChange={(e) => setFilterDepartment(e.target.value)}
-                      className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                    >
-                      <option value="">Semua Departemen</option>
-                      {getDepartments().map(dept => (
-                        <option key={dept} value={dept}>{dept}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="w-full sm:w-40">
-                    <select
-                      value={filterRole}
-                      onChange={(e) => setFilterRole(e.target.value)}
-                      className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                    >
-                      <option value="">Semua Role</option>
-                      <option value="karyawan">Karyawan</option>
-                      <option value="admin">Administrator</option>
-                    </select>
-                  </div>
-                </div>
+          {/* Enhanced Stats Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+            <StatsCard title="Total" value={stats.total} icon={Users} color="blue" />
+            <StatsCard title="Aktif" value={stats.active} icon={UserCheck} color="green" />
+            <StatsCard title="Tidak Aktif" value={stats.inactive} icon={UserX} color="yellow" />
+            <StatsCard title="Admin" value={stats.admins} icon={Shield} color="purple" />
+            <StatsCard title="Karyawan" value={stats.employees} icon={User} color="indigo" />
+          </div>
+
+          {/* Enhanced Filters */}
+          <div className="bg-white rounded-2xl shadow-xl p-6 mb-8 border border-gray-100">
+            <div className="flex items-center space-x-2 mb-4">
+              <Filter className="h-5 w-5 text-blue-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Filter & Pencarian</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Cari nama, email, atau ID..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                />
               </div>
+              <select
+                value={filterRole}
+                onChange={(e) => setFilterRole(e.target.value)}
+                className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+              >
+                <option value="">Semua Role</option>
+                <option value="admin">Administrator</option>
+                <option value="kepala">Kepala Bagian</option>
+                <option value="karyawan">Karyawan</option>
+              </select>
+              <select
+                value={filterDepartment}
+                onChange={(e) => setFilterDepartment(e.target.value)}
+                className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+              >
+                <option value="">Semua Departemen</option>
+                {departments.map(dept => (
+                  <option key={dept.id} value={dept.name}>{dept.name}</option>
+                ))}
+              </select>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+              >
+                <option value="">Semua Status</option>
+                <option value="active">Aktif</option>
+                <option value="inactive">Tidak Aktif</option>
+                <option value="terminated">Diberhentikan</option>
+              </select>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-200">
-              <div className="flex items-center space-x-2">
-                <Users className="h-5 w-5 text-blue-600" />
-                <h2 className="text-base font-medium text-gray-900">
-                  Daftar Pengguna ({filteredUsers.length})
-                </h2>
+          {/* Enhanced Users Table */}
+          <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
+            <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-gray-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Users className="h-5 w-5 text-blue-600" />
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Daftar Karyawan ({filteredUsers.length})
+                  </h2>
+                </div>
+                {contentLoading && (
+                  <div className="flex items-center space-x-2 text-blue-600">
+                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-sm">Memuat...</span>
+                  </div>
+                )}
               </div>
             </div>
-
+            
             {contentLoading ? (
               <div className="flex items-center justify-center py-12">
-                <div className="inline-flex space-x-1 text-blue-600">
-                  <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                  <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                  <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                <div className="text-center">
+                  <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+                  <p className="text-gray-600">Memuat data karyawan...</p>
                 </div>
               </div>
-            ) : filteredUsers.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <User className="h-8 w-8 text-gray-400" />
-                </div>
-                <p className="text-gray-500 text-lg mb-2">Tidak ada pengguna ditemukan</p>
-                <p className="text-gray-400">Coba sesuaikan pencarian atau filter Anda</p>
-              </div>
-            ) : (
-              <>
-                <table className="min-w-full divide-y divide-gray-200 hidden md:table">
+            ) : filteredUsers.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Pengguna
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Karyawan
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Jabatan & Departemen
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Gaji
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Kontak
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Role & Status
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Jabatan
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Bergabung
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Aksi
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {filteredUsers.map((user) => (
-                      <tr key={user.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                              {user.avatar_url ? (
-                                <img 
-                                  src={user.avatar_url} 
-                                  alt={user.name}
-                                  className="w-8 h-8 rounded-full object-cover"
-                                />
-                              ) : (
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${getRoleColor(user.role)}`}>
-                                  {getRoleIcon(user.role)}
+                      <tr key={user.id} className="hover:bg-gray-50 transition-colors duration-200">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center space-x-4">
+                            <div className="relative">
+                              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold shadow-lg">
+                                {user.avatar_url ? (
+                                  <img 
+                                    src={user.avatar_url} 
+                                    alt={user.name} 
+                                    className="w-12 h-12 rounded-full object-cover"
+                                  />
+                                ) : (
+                                  user.name?.charAt(0).toUpperCase()
+                                )}
+                              </div>
+                              {user.is_face_registered && (
+                                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center border-2 border-white">
+                                  <Camera className="h-3 w-3 text-white" />
                                 </div>
                               )}
                             </div>
                             <div>
-                              <div className="text-sm font-medium text-gray-900">
-                                <span 
-                                  className="cursor-pointer text-blue-700 hover:underline" 
-                                  onClick={() => { setProfile(user); setShowProfileModal(true); }}
-                                >
-                                  {user.name}
+                              <div className="flex items-center space-x-2">
+                                <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getRoleColor(user.role)}`}>
+                                  {getRoleIcon(user.role)}
+                                  <span className="ml-1">
+                                    {user.role === 'admin' ? 'Admin' : user.role === 'kepala' ? 'Kepala' : 'Karyawan'}
+                                  </span>
                                 </span>
                               </div>
-                              <div className="text-sm text-gray-500">
-                                ID: {user.employee_id || 'Belum diatur'}
-                              </div>
+                              <p className="text-sm text-gray-500">{user.full_name}</p>
+                              {user.employee_id && (
+                                <p className="text-xs text-gray-400">ID: {user.employee_id}</p>
+                              )}
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
-                            {user.positions?.name_id || user.title || getRoleDisplayName(user.role)}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {user.positions?.department || user.department || 'Belum diatur'}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
-                            {formatCurrency(user.positions?.base_salary || user.salary || 0)}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            per bulan
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 flex items-center">
-                            <Mail className="h-4 w-4 mr-2 text-gray-400" />
-                            <span 
-                              className="cursor-pointer text-blue-700 hover:underline" 
-                              onClick={() => { setProfile(user); setShowProfileModal(true); }}
-                            >
-                              {user.email}
-                            </span>
-                          </div>
-                          {user.phone && (
-                            <div className="text-sm text-gray-500 flex items-center mt-1">
-                              <Phone className="h-4 w-4 mr-2 text-gray-400" />
-                              {user.phone}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-6 py-4 whitespace-nowrap">
                           <div className="space-y-1">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getRoleColor(user.role)}`}>
-                              {user.role === 'admin' && <Shield className="h-3 w-3 mr-1" />}
-                              {getRoleDisplayName(user.role)}
-                            </span>
-                            <div className="text-xs text-gray-500">
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(user.status)}`}>
-                                {user.status === 'active' ? 'Aktif' : 'Nonaktif'}
-                              </span>
+                            <div className="flex items-center space-x-2 text-sm text-gray-900">
+                              <Mail className="h-4 w-4 text-gray-400" />
+                              <span className="truncate max-w-xs">{user.email}</span>
                             </div>
-                            {user.bank_info && (
-                              <div className="text-xs text-gray-500">
-                                <span className="text-blue-600">Bank: {user.bank_info.bank_name}</span>
+                            {user.phone && (
+                              <div className="flex items-center space-x-2 text-sm text-gray-500">
+                                <Phone className="h-4 w-4 text-gray-400" />
+                                <span>{user.phone}</span>
                               </div>
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
-                          <div className="flex space-x-2">
-                            {canManageUser(user.id) ? (
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">
+                              {user.positions?.name_id || user.title || 'Belum diatur'}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {user.department || 'Belum diatur'}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(user.status)}`}>
+                            {user.status === 'active' ? (
                               <>
-                                <button
-                                  onClick={() => handleEditUser(user)}
-                                  className="text-blue-600 hover:text-blue-900 p-1 hover:bg-blue-50 rounded"
-                                  title="Edit User"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleOpenPasswordModal(user)}
-                                  className="text-yellow-600 hover:text-yellow-900 p-1 hover:bg-yellow-50 rounded"
-                                  title="Reset Password"
-                                >
-                                  <Lock className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleToggleStatus(user.id, user.status, user.name)}
-                                  className="text-purple-600 hover:text-purple-900 p-1 hover:bg-purple-50 rounded"
-                                  title={user.status === 'active' ? 'Nonaktifkan' : 'Aktifkan'}
-                                >
-                                  {user.status === 'active' ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
-                                </button>
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Aktif
+                              </>
+                            ) : user.status === 'inactive' ? (
+                              <>
+                                <XCircle className="h-3 w-3 mr-1" />
+                                Tidak Aktif
                               </>
                             ) : (
-                              <span className="text-gray-400 text-xs">Akun Anda</span>
+                              <>
+                                <AlertTriangle className="h-3 w-3 mr-1" />
+                                Diberhentikan
+                              </>
                             )}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center space-x-2 text-sm text-gray-500">
+                            <Calendar className="h-4 w-4 text-gray-400" />
+                            <span>
+                              {user.join_date ? new Date(user.join_date).toLocaleDateString('id-ID') : 'Tidak diketahui'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => handleViewProfile(user)}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
+                              title="Lihat Profil"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleEdit(user)}
+                              className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors duration-200"
+                              title="Edit"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleGenerateWarning(user)}
+                              className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors duration-200"
+                              title="Buat Surat Peringatan"
+                            >
+                              <FileText className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(user.id)}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
+                              title="Hapus"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
                           </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-
-                <div className="md:hidden p-4 space-y-4">
-                  {filteredUsers.map((user) => (
-                    <div key={user.id} className="bg-white rounded-lg shadow-md p-5 border border-gray-100 transition-transform transform hover:scale-[1.02]">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-                            {user.avatar_url ? (
-                              <img 
-                                src={user.avatar_url} 
-                                alt={user.name}
-                                className="w-12 h-12 rounded-full object-cover"
-                              />
-                            ) : (
-                              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${getRoleColor(user.role)}`}>
-                                {getRoleIcon(user.role)}
-                              </div>
-                            )}
-                          </div>
-                          <div>
-                            <p 
-                              className="text-base font-semibold text-gray-900 cursor-pointer text-blue-700 hover:underline"
-                              onClick={() => { setProfile(user); setShowProfileModal(true); }}
-                            >
-                              {user.name}
-                            </p>
-                            <p className="text-sm text-gray-600">
-                              {user.positions?.name_id || user.title || getRoleDisplayName(user.role)}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex space-x-2">
-                          {canManageUser(user.id) ? (
-                            <>
-                              <button
-                                onClick={() => handleEditUser(user)}
-                                className="text-blue-600 hover:text-blue-900 p-2 rounded-full hover:bg-blue-50"
-                              >
-                                <Edit className="h-6 w-6" />
-                              </button>
-                              <button
-                                onClick={() => handleOpenPasswordModal(user)}
-                                className="text-yellow-600 hover:text-yellow-900 p-2 rounded-full hover:bg-yellow-50"
-                              >
-                                <Lock className="h-6 w-6" />
-                              </button>
-                              <button
-                                onClick={() => handleToggleStatus(user.id, user.status, user.name)}
-                                className="text-purple-600 hover:text-purple-900 p-2 rounded-full hover:bg-purple-50"
-                              >
-                                {user.status === 'active' ? <ToggleRight className="h-6 w-6" /> : <ToggleLeft className="h-6 w-6" />}
-                              </button>
-                            </>
-                          ) : (
-                            <span className="text-gray-400 text-sm">Akun Anda</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-sm text-gray-700 space-y-2">
-                        <p><span className="font-medium">ID:</span> {user.employee_id || 'Belum diatur'}</p>
-                        <p><span className="font-medium">Departemen:</span> {user.positions?.department || user.department || 'Belum diatur'}</p>
-                        <p><span className="font-medium">Gaji:</span> {formatCurrency(user.positions?.base_salary || user.salary || 0)}</p>
-                        <p><span className="font-medium">Email:</span> {user.email}</p>
-                        {user.phone && <p><span className="font-medium">Telepon:</span> {user.phone}</p>}
-                        <p>
-                          <span className="font-medium">Role:</span>{' '}
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getRoleColor(user.role)}`}>
-                            {user.role === 'admin' && <Shield className="h-4 w-4 mr-1" />}
-                            {getRoleDisplayName(user.role)}
-                          </span>
-                        </p>
-                        <p>
-                          <span className="font-medium">Status:</span>{' '}
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(user.status)}`}>
-                            {user.status === 'active' ? 'Aktif' : 'Nonaktif'}
-                          </span>
-                        </p>
-                        {user.bank_info && <p><span className="font-medium">Bank:</span> {user.bank_info.bank_name}</p>}
-                      </div>
-                    </div>
-                  ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Users className="h-10 w-10 text-gray-400" />
                 </div>
-              </>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Tidak ada karyawan ditemukan</h3>
+                <p className="text-gray-500 mb-6">Coba sesuaikan filter pencarian atau tambah karyawan baru</p>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Tambah Karyawan Pertama</span>
+                </button>
+              </div>
             )}
           </div>
-
-          {showProfileModal && (
-            <ProfileModal profile={profile} onClose={() => setShowProfileModal(false)} />
-          )}
         </div>
       </div>
 
-      {showModal && (
+      {/* Profile Modal */}
+      {showProfileModal && selectedUser && (
+        <ProfileModal
+          profile={selectedUser}
+          onClose={() => {
+            setShowProfileModal(false);
+            setSelectedUser(null);
+          }}
+        />
+      )}
+
+      {/* Warning Letter Modal */}
+      {showWarningModal && selectedUser && (
+        <WarningLetterGenerator
+          employee={selectedUser}
+          issuedByUserId={currentUser?.id}
+          onClose={() => {
+            setShowWarningModal(false);
+            setSelectedUser(null);
+          }}
+          onGenerated={(letter) => {
+            console.log('Warning letter generated:', letter);
+            setSuccess('Surat peringatan berhasil dibuat!');
+            setTimeout(() => setSuccess(null), 3000);
+          }}
+        />
+      )}
+
+      {/* Add/Edit User Modal */}
+      {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="w-full max-w-md sm:max-w-lg bg-white rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-5 sm:p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
-                  {modalMode === 'add' ? 'Tambah Pengguna Baru' : modalMode === 'edit' ? 'Edit Pengguna' : 'Reset Password'}
-                </h2>
+          <div className="max-w-4xl w-full max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-2xl">
+            <div className="p-6">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+                    {editingUser ? <Edit className="h-5 w-5 text-white" /> : <Plus className="h-5 w-5 text-white" />}
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900">
+                      {editingUser ? 'Edit Karyawan' : 'Tambah Karyawan Baru'}
+                    </h2>
+                    <p className="text-gray-500 text-sm">
+                      {editingUser ? 'Perbarui informasi karyawan' : 'Isi data karyawan baru'}
+                    </p>
+                  </div>
+                </div>
                 <button
                   onClick={resetForm}
-                  className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100"
+                  className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
                 >
                   <X className="h-6 w-6" />
                 </button>
               </div>
 
-              {modalMode !== 'password' && (
-                <div className="flex items-center justify-center mb-4">
-                  {[1, 2].map((stepNum) => (
-                    <div key={stepNum} className="flex items-center">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                        step >= stepNum
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-200 text-gray-600'
-                      }`}>
-                        {step > stepNum ? <CheckCircle className="h-5 w-5" /> : stepNum}
-                      </div>
-                      {stepNum < 2 && (
-                        <div className={`w-10 h-1 mx-2 ${
-                          step > stepNum ? 'bg-blue-600' : 'bg-gray-200'
-                        }`} />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {modalMode === 'password' ? (
-                <form onSubmit={(e) => { e.preventDefault(); handleResetPassword(); }} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Nama Pengguna
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.name}
-                      readOnly
-                      className="w-full px-3 py-3 border border-gray-300 rounded-lg bg-gray-50 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Password Baru *
-                    </label>
-                    <input
-                      type="password"
-                      name="password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                      placeholder="Minimal 6 karakter"
-                    />
-                  </div>
-                  <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 pt-4">
-                    <button
-                      type="button"
-                      onClick={resetForm}
-                      className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
-                    >
-                      Batal
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
-                    >
-                      <div className="flex items-center justify-center space-x-2">
-                        <Lock className="h-5 w-5" />
-                        <span>Reset Password</span>
-                      </div>
-                    </button>
-                  </div>
-                </form>
-              ) : step === 1 ? (
-                <form onSubmit={handleBasicInfoSubmit} className="space-y-4">
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <h3 className="font-medium text-blue-900 mb-3">Pilih Jabatan</h3>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Personal Information */}
+                <div className="bg-blue-50 p-6 rounded-xl border border-blue-100">
+                  <h3 className="font-semibold text-blue-900 mb-4 flex items-center space-x-2">
+                    <User className="h-5 w-5" />
+                    <span>Informasi Pribadi</span>
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Jabatan *
-                      </label>
-                      <select
-                        name="position_id"
-                        value={formData.position_id}
-                        onChange={handleInputChange}
-                        required
-                        className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                      >
-                        <option value="">Pilih Jabatan...</option>
-                        {positions.map(position => (
-                          <option key={position.id} value={position.id}>
-                            {position.name_id} - {position.department} ({formatCurrency(position.base_salary || 0)})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {formData.position_id && (
-                      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            ID Karyawan
-                          </label>
-                          <input
-                            type="text"
-                            value={formData.employee_id}
-                            readOnly
-                            className="w-full px-3 py-3 border border-gray-300 rounded-lg bg-gray-50 text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Gaji Bulanan
-                          </label>
-                          <input
-                            type="text"
-                            value={formatCurrency(formData.salary)}
-                            readOnly
-                            className="w-full px-3 py-3 border border-gray-300 rounded-lg bg-gray-50 text-sm"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Nama Lengkap *
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Nama Panggilan *
                       </label>
                       <input
                         type="text"
@@ -1130,12 +844,26 @@ const UserManagement = () => {
                         value={formData.name}
                         onChange={handleInputChange}
                         required
-                        className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                        placeholder="Masukkan nama lengkap"
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                        placeholder="Nama panggilan"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Nama Lengkap *
+                      </label>
+                      <input
+                        type="text"
+                        name="full_name"
+                        value={formData.full_name}
+                        onChange={handleInputChange}
+                        required
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                        placeholder="Nama lengkap"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
                         Email *
                       </label>
                       <input
@@ -1144,254 +872,242 @@ const UserManagement = () => {
                         value={formData.email}
                         onChange={handleInputChange}
                         required
-                        className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                        placeholder="Masukkan email"
+                        disabled={editingUser}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 disabled:bg-gray-50"
+                        placeholder="email@example.com"
                       />
                     </div>
-                  </div>
-
-                  {modalMode === 'add' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Password *
-                        </label>
-                        <input
-                          type="password"
-                          name="password"
-                          value={formData.password}
-                          onChange={handleInputChange}
-                          required
-                          className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                          placeholder="Minimal 6 karakter"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Role
-                        </label>
-                        <select
-                          name="role"
-                          value={formData.role}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                        >
-                          <option value="karyawan">Karyawan</option>
-                          <option value="admin">Administrator</option>
-                        </select>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        No. Telepon
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Nomor Telepon
                       </label>
                       <input
                         type="tel"
                         name="phone"
                         value={formData.phone}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                        placeholder="Contoh: +62-21-1234567"
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                        placeholder="+62-21-1234567"
                       />
                     </div>
+                  </div>
+                </div>
+
+                {/* Employment Information */}
+                <div className="bg-green-50 p-6 rounded-xl border border-green-100">
+                  <h3 className="font-semibold text-green-900 mb-4 flex items-center space-x-2">
+                    <Briefcase className="h-5 w-5" />
+                    <span>Informasi Pekerjaan</span>
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Lokasi
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Role *
                       </label>
-                      <input
-                        type="text"
-                        name="location"
-                        value={formData.location}
+                      <select
+                        name="role"
+                        value={formData.role}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                        placeholder="Contoh: Jakarta, Indonesia"
-                      />
+                        required
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      >
+                        <option value="karyawan">Karyawan</option>
+                        <option value="kepala">Kepala Bagian</option>
+                        <option value="admin">Administrator</option>
+                      </select>
                     </div>
-                  </div>
-
-                  <div className="bg-green-50 p-4 rounded-lg">
-                    <h3 className="font-medium text-green-900 mb-3">Informasi Bank (Opsional)</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Pilih Bank
-                        </label>
-                        <select
-                          name="bank_id"
-                          value={formData.bank_id}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                        >
-                          <option value="">Pilih Bank...</option>
-                          {banks.map(bank => (
-                            <option key={bank.id} value={bank.id}>
-                              {bank.bank_name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Nomor Rekening
-                        </label>
-                        <input
-                          type="text"
-                          name="bank_account_number"
-                          value={formData.bank_account_number}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                          placeholder="Nomor rekening"
-                        />
-                      </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Jabatan
+                      </label>
+                      <select
+                        name="position_id"
+                        value={formData.position_id}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      >
+                        <option value="">Pilih Jabatan...</option>
+                        {positions.map(position => (
+                          <option key={position.id} value={position.id}>
+                            {position.name_id}
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                    <div className="mt-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Nama Pemilik Rekening
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Departemen
+                      </label>
+                      <select
+                        name="department"
+                        value={formData.department}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      >
+                        <option value="">Pilih Departemen...</option>
+                        {departments.map(dept => (
+                          <option key={dept.id} value={dept.name}>
+                            {dept.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        ID Karyawan
                       </label>
                       <input
                         type="text"
-                        value={formData.bank_account_name}
-                        readOnly
-                        className="w-full px-3 py-3 border border-gray-300 rounded-lg bg-gray-50 text-sm"
-                        placeholder="Otomatis sesuai nama lengkap"
+                        name="employee_id"
+                        value={formData.employee_id}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                        placeholder="EMP001"
                       />
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Bio
-                    </label>
-                    <textarea
-                      name="bio"
-                      value={formData.bio}
-                      onChange={handleInputChange}
-                      rows={4}
-                      className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                      placeholder="Deskripsi singkat tentang pengguna"
-                    />
-                  </div>
-
-                  {modalMode === 'edit' && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Status
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Status *
                       </label>
                       <select
                         name="status"
                         value={formData.status}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        required
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                       >
                         <option value="active">Aktif</option>
-                        <option value="inactive">Nonaktif</option>
+                        <option value="inactive">Tidak Aktif</option>
+                        <option value="terminated">Diberhentikan</option>
                       </select>
                     </div>
-                  )}
-
-                  {formData.role === 'admin' && (
-                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                      <div className="flex items-start space-x-3">
-                        <Shield className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-blue-800 font-medium">Administrator</p>
-                          <p className="text-blue-700 text-sm mt-1">
-                            Administrator tidak memerlukan verifikasi wajah dan dapat langsung mengakses semua fitur sistem.
-                          </p>
-                        </div>
-                      </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Tanggal Bergabung
+                      </label>
+                      <input
+                        type="date"
+                        name="join_date"
+                        value={formData.join_date}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      />
                     </div>
-                  )}
-
-                  <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 pt-4">
-                    <button
-                      type="button"
-                      onClick={resetForm}
-                      className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
-                    >
-                      Batal
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
-                    >
-                      <div className="flex items-center justify-center space-x-2">
-                        <Save className="h-5 w-5" />
-                        <span>{modalMode === 'add' && formData.role === 'admin' ? 'Buat Administrator' : modalMode === 'add' ? 'Lanjut ke Foto Wajah' : 'Perbarui Pengguna'}</span>
-                      </div>
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <div className="space-y-4">
-                  <div className="text-center mb-4">
-                    <Camera className="h-12 w-12 text-blue-600 mx-auto mb-2" />
-                    <p className="text-gray-600 text-sm">
-                      Ambil foto wajah yang jelas untuk verifikasi absensi. 
-                      Sistem kami menggunakan teknologi pengenalan wajah yang aman dan cepat.
-                    </p>
-                  </div>
-
-                  <CustomFaceCapture onFaceCapture={handleFaceCapture} isCapturing={isSubmitting} />
-
-                  {facePhoto && faceFingerprint && (
-                    <div className="text-center">
-                      <div className="inline-flex items-center space-x-2 text-green-600 mb-4">
-                        <CheckCircle className="h-5 w-5" />
-                        <span>Foto wajah berhasil diambil dan diverifikasi!</span>
-                      </div>
-                    </div>
-                  )}
-                  {facePhoto && !faceFingerprint && (
-                    <div className="text-center">
-                      <div className="inline-flex items-center space-x-2 text-yellow-600 mb-4">
-                        <AlertTriangle className="h-5 w-5" />
-                        <span>Fingerprint wajah tidak terdeteksi, silakan ulangi pengambilan foto.</span>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3">
-                    <button
-                      onClick={() => setStep(1)}
-                      className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
-                    >
-                      Kembali
-                    </button>
-                    <button
-                      onClick={modalMode === 'add' ? handleCreateUser : handleUpdateUser}
-                      disabled={!facePhoto || !faceFingerprint || isSubmitting}
-                      className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
-                    >
-                      <div className="flex items-center justify-center space-x-2">
-                        {isSubmitting ? (
-                          <>
-                            <div className="inline-flex space-x-1">
-                              <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                              <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                              <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                            </div>
-                            <span>Menyimpan...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Save className="h-5 w-5" />
-                            <span>{modalMode === 'add' ? 'Buat Pengguna' : 'Perbarui Pengguna'}</span>
-                          </>
-                        )}
-                      </div>
-                    </button>
                   </div>
                 </div>
-              )}
+
+                {/* Bank Information */}
+                <div className="bg-purple-50 p-6 rounded-xl border border-purple-100">
+                  <h3 className="font-semibold text-purple-900 mb-4 flex items-center space-x-2">
+                    <CreditCard className="h-5 w-5" />
+                    <span>Informasi Bank</span>
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Bank
+                      </label>
+                      <select
+                        name="bank_id"
+                        value={formData.bank_id}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      >
+                        <option value="">Pilih Bank...</option>
+                        {banks.map(bank => (
+                          <option key={bank.id} value={bank.id}>
+                            {bank.bank_name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Nomor Rekening
+                      </label>
+                      <input
+                        type="text"
+                        name="bank_account_number"
+                        value={formData.bank_account_number}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                        placeholder="1234567890"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Nama Pemegang
+                      </label>
+                      <input
+                        type="text"
+                        name="bank_account_name"
+                        value={formData.bank_account_name}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                        placeholder="Nama sesuai rekening"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex space-x-4 pt-6">
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200 font-medium"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={contentLoading}
+                    className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-6 rounded-xl font-medium hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl"
+                  >
+                    {contentLoading ? (
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Menyimpan...</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center space-x-2">
+                        <Save className="h-4 w-4" />
+                        <span>{editingUser ? 'Perbarui Karyawan' : 'Simpan Karyawan'}</span>
+                      </div>
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+// Enhanced Stats Card Component
+const StatsCard = ({ title, value, icon: Icon, color }) => {
+  const colorClasses = {
+    blue: 'from-blue-500 to-blue-600',
+    green: 'from-green-500 to-emerald-600',
+    yellow: 'from-yellow-500 to-orange-500',
+    purple: 'from-purple-500 to-purple-600',
+    indigo: 'from-indigo-500 to-indigo-600',
+    red: 'from-red-500 to-red-600'
+  };
+
+  return (
+    <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 group">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-2xl font-bold text-gray-900 mb-1">{value}</p>
+          <p className="text-sm font-medium text-gray-600">{title}</p>
+        </div>
+        <div className={`w-10 h-10 bg-gradient-to-br ${colorClasses[color]} rounded-lg flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-200`}>
+          <Icon className="h-5 w-5 text-white" />
+        </div>
+      </div>
     </div>
   );
 };
