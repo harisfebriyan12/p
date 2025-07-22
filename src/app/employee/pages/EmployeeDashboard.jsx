@@ -7,10 +7,10 @@ import {
   TrendingUp, Bell, ChevronLeft, ChevronRight, CalendarDays
 } from 'lucide-react';
 
-import { supabase } from '../api/supabaseClient';
-import AttendanceForm from '../components/AttendanceForm';
-import NotificationSystem from '../components/NotificationSystem';
-import { getCameraVerificationSettings } from '../api/supabaseClient';
+import { supabase } from '../../../api/supabaseClient';
+import AttendanceForm from './AttendanceForm';
+import NotificationSystem from '../../../components/NotificationSystem';
+import { getCameraVerificationSettings } from '../../../api/supabaseClient';
 import ReactCalendar from 'react-calendar';
 import { format, isToday, isWeekend, parseISO, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { id } from 'date-fns/locale';
@@ -653,11 +653,11 @@ const EmployeeDashboard = () => {
         )}
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-          <StatCardMini icon={Calendar} title="Hadir" value={`${stats.thisMonth} hari`} color="blue" />
-          <StatCardMini icon={CheckCircle} title="Tepat Waktu" value={stats.onTime} color="green" />
-          <StatCardMini icon={AlertTriangle} title="Terlambat" value={stats.late} color="orange" />
-          <StatCardMini icon={DollarSign} title="Jam Kerja" value={`${stats.totalHours} jam`} color="purple" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 mb-6">
+          <StatCardMini icon={Calendar} title="Hadir Bulan Ini" value={`${stats.thisMonth} hari`} color="blue" trend="+2 hari" />
+          <StatCardMini icon={CheckCircle} title="Tepat Waktu" value={`${stats.onTime} hari`} color="green" trend="+5%" />
+          <StatCardMini icon={AlertTriangle} title="Terlambat" value={`${stats.late} hari`} color="orange" trend="-1%" />
+          <StatCardMini icon={DollarSign} title="Total Jam Kerja" value={`${stats.totalHours} jam`} color="purple" trend="+10 jam" />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Today's Attendance and Calendar Toggle */}
@@ -904,7 +904,7 @@ const EmployeeDashboard = () => {
 export default EmployeeDashboard;
 
 // Reusable Mini Stat Card Component for Mobile
-const StatCardMini = ({ icon: Icon, title, value, color }) => {
+const StatCardMini = ({ icon: Icon, title, value, color, trend }) => {
   const colors = {
     blue: { bg: 'bg-blue-100', text: 'text-blue-600' },
     green: { bg: 'bg-green-100', text: 'text-green-600' },
@@ -914,15 +914,20 @@ const StatCardMini = ({ icon: Icon, title, value, color }) => {
   const selectedColor = colors[color] || colors.blue;
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-3 hover:shadow-lg transition-shadow">
-      <div className="flex items-center space-x-3">
-        <div className={`w-10 h-10 ${selectedColor.bg} rounded-lg flex items-center justify-center flex-shrink-0`}>
-          <Icon className={`h-5 w-5 ${selectedColor.text}`} />
+    <div className="bg-white rounded-xl shadow-lg p-4 hover:shadow-xl transition-shadow transform hover:-translate-y-1">
+      <div className="flex items-center justify-between">
+        <div className={`p-3 rounded-full ${selectedColor.bg}`}>
+          <Icon className={`h-6 w-6 ${selectedColor.text}`} />
         </div>
-        <div className="overflow-hidden">
-          <p className="text-xs font-medium text-gray-600 truncate">{title}</p>
-          <p className="text-base font-bold text-gray-900 truncate">{value}</p>
-        </div>
+        {trend && (
+          <div className={`flex items-center text-sm ${trend.startsWith('+') ? 'text-green-500' : 'text-red-500'}`}>
+            {trend}
+          </div>
+        )}
+      </div>
+      <div className="mt-4">
+        <p className="text-sm font-medium text-gray-500">{title}</p>
+        <p className="text-2xl font-bold text-gray-900">{value}</p>
       </div>
     </div>
   );

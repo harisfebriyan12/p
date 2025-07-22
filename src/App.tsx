@@ -3,18 +3,25 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavig
 import { supabase } from './api/supabaseClient';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import AttendanceHistory from './pages/AttendanceHistory';
-import AdminDashboard from './pages/AdminDashboard';
-import UserManagement from './pages/UserManagement';
-import SalaryPaymentManagement from './pages/SalaryPaymentManagement';
-import DepartmentManagement from './pages/DepartmentManagement';
-import PositionManagement from './pages/PositionManagement';
-import ProfileSetup from './pages/ProfileSetup';
-import LocationSettings from './pages/LocationSettings';
-import BankManagement from './pages/BankManagement';
-import AttendanceManagementByDate from './pages/AttendanceManagementByDate';
 import { LanguageProvider } from './lib/languageContext';
+
+import AdminLayout from './components/layouts/AdminLayout';
+import EmployeeLayout from './components/layouts/EmployeeLayout';
+
+import AdminDashboard from './app/admin/pages/AdminDashboard';
+import UserManagement from './app/admin/pages/UserManagement';
+import DepartmentManagement from './app/admin/pages/DepartmentManagement';
+import PositionManagement from './app/admin/pages/PositionManagement';
+import SalaryPaymentManagement from './app/admin/pages/SalaryPaymentManagement';
+import LocationSettings from './app/admin/pages/LocationSettings';
+import BankManagement from './app/admin/pages/BankManagement';
+import AttendanceManagementByDate from './app/admin/pages/AttendanceManagementByDate';
+
+import EmployeeDashboard from './app/employee/pages/EmployeeDashboard';
+import AttendanceForm from './app/employee/pages/AttendanceForm';
+import ProfileSetup from './app/employee/pages/ProfileSetup';
+import AttendanceHistory from './app/employee/pages/AttendanceHistory';
+import ActivityLog from './app/employee/pages/ActivityLog';
 
 function App() {
   return (
@@ -36,37 +43,16 @@ function AppContent() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Dapatkan session awal dengan error handling
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error) {
-        // Jika ada error (seperti user_not_found), clear session
-        console.error('Session error:', error);
-        supabase.auth.signOut();
-        setSession(null);
-      } else {
-        setSession(session);
-        
-        // Fetch user role if session exists
-        if (session) {
-          fetchUserRole(session.user.id);
-        }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session) {
+        fetchUserRole(session.user.id);
       }
-      setLoading(false);
-    }).catch((error) => {
-      // Handle any unexpected errors
-      console.error('Unexpected session error:', error);
-      supabase.auth.signOut();
-      setSession(null);
       setLoading(false);
     });
 
-    // Dengarkan perubahan auth
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      
-      // Fetch user role when session changes
       if (session) {
         fetchUserRole(session.user.id);
       } else {
@@ -77,34 +63,6 @@ function AppContent() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Handle 404s by redirecting to home page
-  useEffect(() => {
-    // Check if the current path doesn't match any of our routes
-    const validPaths = [
-      '/login', '/register', '/dashboard', '/profile-setup', 
-      '/history', '/admin', '/admin/users', '/admin/departments', 
-      '/admin/positions', '/admin/salary-payment', '/admin/location', 
-      '/admin/bank', '/admin/attendance', '/'
-    ];
-    
-    const isValidPath = validPaths.some(path => {
-      // Check if current path starts with this valid path
-      return location.pathname === path || 
-             (path !== '/' && location.pathname.startsWith(path + '/'));
-    });
-    
-    if (!isValidPath && !loading) {
-      // Redirect to appropriate page based on user role
-      if (!session) {
-        navigate('/login');
-      } else if (userRole === 'admin') {
-        navigate('/admin');
-      } else {
-        navigate('/dashboard');
-      }
-    }
-  }, [location.pathname, loading, session, userRole, navigate]);
-
   const fetchUserRole = async (userId) => {
     try {
       const { data, error } = await supabase
@@ -112,12 +70,10 @@ function AppContent() {
         .select('role')
         .eq('id', userId)
         .single();
-      
       if (error) throw error;
       setUserRole(data.role);
     } catch (error) {
       console.error('Error fetching user role:', error);
-      setUserRole(null);
     }
   };
 
@@ -125,91 +81,42 @@ function AppContent() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-flex space-x-1 text-blue-600">
-            <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-            <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-            <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-          </div>
-          <p className="text-gray-600 mt-4">Memuat aplikasi...</p>
+          <p>Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col flex-1">
-      <Routes>
-        <Route 
-          path="/login" 
-          element={!session ? <Login /> : (userRole === 'admin' ? <Navigate to="/admin" replace /> : <Navigate to="/dashboard" replace />)} 
-        />
-        <Route 
-          path="/register" 
-          element={!session ? <Register /> : (userRole === 'admin' ? <Navigate to="/admin" replace /> : <Navigate to="/dashboard" replace />)} 
-        />
-        <Route 
-          path="/dashboard" 
-          element={session ? <Dashboard /> : <Navigate to="/login" replace />}
-        />
-        <Route 
-          path="/profile-setup" 
-          element={session ? <ProfileSetup /> : <Navigate to="/login" replace />} 
-        />
-        <Route 
-          path="/history" 
-          element={session ? <AttendanceHistory /> : <Navigate to="/login" replace />} 
-        />
-        <Route 
-          path="/admin" 
-          element={session && userRole === 'admin' ? <AdminDashboard /> : <Navigate to={session ? "/dashboard" : "/login"} replace />}
-        />
-        <Route 
-          path="/admin/users" 
-          element={session && userRole === 'admin' ? <UserManagement /> : <Navigate to={session ? "/dashboard" : "/login"} replace />} 
-        />
-        <Route 
-          path="/admin/departments" 
-          element={session && userRole === 'admin' ? <DepartmentManagement /> : <Navigate to={session ? "/dashboard" : "/login"} replace />} 
-        />
-        <Route 
-          path="/admin/positions" 
-          element={session && userRole === 'admin' ? <PositionManagement /> : <Navigate to={session ? "/dashboard" : "/login"} replace />} 
-        />
-        <Route 
-          path="/admin/salary-payment" 
-          element={session && userRole === 'admin' ? <SalaryPaymentManagement /> : <Navigate to={session ? "/dashboard" : "/login"} replace />} 
-        />
-        <Route 
-          path="/admin/location" 
-          element={session && userRole === 'admin' ? <LocationSettings /> : <Navigate to={session ? "/dashboard" : "/login"} replace />} 
-        />
-        <Route 
-          path="/admin/bank" 
-          element={session && userRole === 'admin' ? <BankManagement /> : <Navigate to={session ? "/dashboard" : "/login"} replace />} 
-        />
-        <Route 
-          path="/admin/attendance" 
-          element={session && userRole === 'admin' ? <AttendanceManagementByDate /> : <Navigate to={session ? "/dashboard" : "/login"} replace />} 
-        />
-        <Route 
-          path="/" 
-          element={
-            !session ? <Navigate to="/login" replace /> : 
-            userRole === 'admin' ? <Navigate to="/admin" replace /> : 
-            <Navigate to="/dashboard" replace />
-          } 
-        />
-        {/* Catch-all route to handle 404s */}
-        <Route 
-          path="*" 
-          element={
-            !session ? <Navigate to="/login" replace /> : 
-            userRole === 'admin' ? <Navigate to="/admin" replace /> : 
-            <Navigate to="/dashboard" replace />
-          } 
-        />
-      </Routes>
-    </div>
+    <Routes>
+      <Route path="/login" element={!session ? <Login /> : <Navigate to={userRole === 'admin' ? '/admin' : '/'} />} />
+      <Route path="/register" element={!session ? <Register /> : <Navigate to={userRole === 'admin' ? '/admin' : '/'} />} />
+
+      {session && userRole === 'admin' && (
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<AdminDashboard />} />
+          <Route path="users" element={<UserManagement />} />
+          <Route path="departments" element={<DepartmentManagement />} />
+          <Route path="positions" element={<PositionManagement />} />
+          <Route path="salary-payment" element={<SalaryPaymentManagement />} />
+          <Route path="location" element={<LocationSettings />} />
+          <Route path="bank" element={<BankManagement />} />
+          <Route path="attendance" element={<AttendanceManagementByDate />} />
+        </Route>
+      )}
+
+      {session && userRole === 'karyawan' && (
+        <Route path="/" element={<EmployeeLayout />}>
+          <Route index element={<EmployeeDashboard />} />
+          <Route path="attendance" element={<AttendanceForm />} />
+          <Route path="profile" element={<ProfileSetup />} />
+          <Route path="history" element={<AttendanceHistory />} />
+          <Route path="activity" element={<ActivityLog />} />
+        </Route>
+      )}
+
+      <Route path="*" element={<Navigate to={!session ? '/login' : userRole === 'admin' ? '/admin' : '/'} />} />
+    </Routes>
   );
 }
 

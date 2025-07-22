@@ -17,8 +17,8 @@ import {
   FileText,
   Send
 } from 'lucide-react';
-import { supabase } from '../api/supabaseClient';
-import SalaryPaymentForm from '../components/SalaryPaymentForm';
+import { supabase } from '../../../api/supabaseClient';
+import SalaryPaymentForm from '../../../components/SalaryPaymentForm';
 import AdminSidebar from '../components/AdminSidebar';
 
 const SalaryPaymentManagement = () => {

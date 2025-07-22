@@ -24,8 +24,8 @@ import {
   Crown,
   Award
 } from 'lucide-react';
-import { supabase } from '../api/supabaseClient';
-import Swal from '../pages/swal.js';
+import { supabase } from '../../../api/supabaseClient';
+import Swal from '../../../pages/swal.js';
 
 const AdminSidebar = ({ user, profile }) => {
   const navigate = useNavigate();
