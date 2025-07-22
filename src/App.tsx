@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { supabase } from './utils/supabaseClient';
+import { supabase } from './api/supabaseClient';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -14,7 +14,7 @@ import ProfileSetup from './pages/ProfileSetup';
 import LocationSettings from './pages/LocationSettings';
 import BankManagement from './pages/BankManagement';
 import AttendanceManagementByDate from './pages/AttendanceManagementByDate';
-import { LanguageProvider } from './utils/languageContext';
+import { LanguageProvider } from './lib/languageContext';
 
 function App() {
   return (

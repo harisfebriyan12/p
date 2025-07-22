@@ -24,7 +24,7 @@ import {
   Crown,
   Award
 } from 'lucide-react';
-import { supabase } from '../utils/supabaseClient';
+import { supabase } from '../api/supabaseClient';
 import Swal from '../pages/swal.js';
 
 const AdminSidebar = ({ user, profile }) => {

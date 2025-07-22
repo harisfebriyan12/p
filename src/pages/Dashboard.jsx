@@ -7,10 +7,10 @@ import {
   TrendingUp, Bell, ChevronLeft, ChevronRight, CalendarDays
 } from 'lucide-react';
 
-import { supabase } from '../utils/supabaseClient';
+import { supabase } from '../api/supabaseClient';
 import AttendanceForm from '../components/AttendanceForm';
 import NotificationSystem from '../components/NotificationSystem';
-import { getCameraVerificationSettings } from '../utils/supabaseClient';
+import { getCameraVerificationSettings } from '../api/supabaseClient';
 import ReactCalendar from 'react-calendar';
 import { format, isToday, isWeekend, parseISO, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { id } from 'date-fns/locale';
