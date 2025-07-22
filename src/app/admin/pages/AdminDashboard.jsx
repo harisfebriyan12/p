@@ -22,10 +22,12 @@ const AdminDashboard = () => {
             to={feature.path}
             className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow flex items-center space-x-4"
           >
-            <feature.icon className="w-8 h-8 text-blue-600" />
-            <div>
+            <div className={`p-4 rounded-full bg-blue-100 text-blue-600`}>
+              <feature.icon className="w-8 h-8" />
+            </div>
+            <div className="ml-4">
               <h2 className="text-lg font-semibold">{feature.name}</h2>
-              <p className="text-gray-500">Buka halaman {feature.name.toLowerCase()}</p>
+              <p className="text-gray-500 text-sm">Buka halaman {feature.name.toLowerCase()}</p>
             </div>
           </Link>
         ))}

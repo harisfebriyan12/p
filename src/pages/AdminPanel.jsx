@@ -36,8 +36,8 @@ import {
   Star,
   Sparkles
 } from 'lucide-react';
-import { supabase } from '../api/supabaseClient';
-import AdminSidebar from '../components/AdminSidebar';
+import { supabase } from './../api/supabaseClient';
+import AdminSidebar from './../components/AdminSidebar';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 
 const AdminPanel = () => {

@@ -15,7 +15,7 @@ import {
   XCircle,
   Briefcase
 } from 'lucide-react';
-import { supabase } from '../api/supabaseClient';
+import { supabase } from '../../../api/supabaseClient';
 import AdminSidebar from '../components/AdminSidebar';
 
 const PositionManagement = () => {

@@ -44,10 +44,10 @@ import {
   Zap,
   Sparkles
 } from 'lucide-react';
-import { supabase } from '../api/supabaseClient';
+import { supabase } from '../../../api/supabaseClient';
 import AdminSidebar from '../components/AdminSidebar';
-import ProfileModal from '../components/ProfileModal';
-import WarningLetterGenerator from '../components/WarningLetterGenerator';
+import ProfileModal from '../../../components/ProfileModal';
+import WarningLetterGenerator from '../../../components/WarningLetterGenerator';
 
 const UserManagement = () => {
   const navigate = useNavigate();

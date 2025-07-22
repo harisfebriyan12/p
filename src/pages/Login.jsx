@@ -3,8 +3,8 @@ import Swal from 'sweetalert2';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { LogIn, Mail, Lock, AlertCircle, Building2, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import ReCAPTCHA from 'react-google-recaptcha';
-import { supabase, isSupabaseConfigured } from '../api/supabaseClient';
-import RecaptchaInfo from '../components/RecaptchaInfo';
+import { supabase, isSupabaseConfigured } from './../api/supabaseClient';
+import RecaptchaInfo from './../components/RecaptchaInfo';
 
 const Login = () => {
   const navigate = useNavigate();

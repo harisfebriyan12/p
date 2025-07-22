@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import Swal from '../pages/swal';
+import Swal from '../../../pages/swal';
 import { Clock, MapPin, Camera, CheckCircle, AlertCircle, User, Edit, Bell } from 'lucide-react';
-import { supabase, getOfficeLocation, getCameraVerificationSettings } from '../api/supabaseClient';
-import { processImageUrl, compareFaceFingerprints } from '../lib/customFaceRecognition';
-import CustomFaceCapture from './CustomFaceCapture';
-import LocationValidator from './LocationValidator';
+import { supabase, getOfficeLocation, getCameraVerificationSettings } from '../../../api/supabaseClient';
+import { processImageUrl, compareFaceFingerprints } from '../../../lib/customFaceRecognition';
+import CustomFaceCapture from '../../../components/CustomFaceCapture';
+import LocationValidator from '../../../components/LocationValidator';
 
 const AttendanceForm = ({ user, onAttendanceSubmitted, todayAttendance = [] }) => {
   const [attendanceType, setAttendanceType] = useState('masuk');
@@ -333,6 +333,30 @@ const AttendanceForm = ({ user, onAttendanceSubmitted, todayAttendance = [] }) =
       };
 
       await supabase.from('attendance').insert([failedData]);
+
+      // Log activity
+      try {
+        await supabase.from('activity_logs').insert([{
+          user_id: user.id,
+          action_type: `attendance_${attendanceType}`,
+          action_details: {
+            type: attendanceType,
+            status: errorStatus,
+            error: err.message,
+            location: {
+              latitude: userLocation?.latitude || null,
+              longitude: userLocation?.longitude || null
+            },
+            device_info: {
+              user_agent: navigator.userAgent,
+              timestamp: new Date().toISOString()
+            }
+          },
+          user_agent: navigator.userAgent
+        }]);
+      } catch (logError) {
+        console.error('Failed to log activity:', logError);
+      }
       
       await Swal.fire({
         icon: 'error',
