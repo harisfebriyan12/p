@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
-import { getCurrentLocation, isWithinRadius } from '../utils/haversine';
-import { getOfficeLocation } from '../utils/supabaseClient';
+import { getCurrentLocation, isWithinRadius } from '../lib/haversine';
+import { getOfficeLocation } from '../api/supabaseClient';
 
 const LocationValidator = ({ onLocationValidated }) => {
   const [location, setLocation] = useState(null);

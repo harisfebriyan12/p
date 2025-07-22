@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { supabase } from './utils/supabaseClient';
+import { supabase } from './api/supabaseClient';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import AttendanceHistory from './pages/AttendanceHistory';
-import AdminPanel from './pages/AdminPanel';
+import AdminDashboard from './pages/AdminDashboard';
 import UserManagement from './pages/UserManagement';
 import SalaryPaymentManagement from './pages/SalaryPaymentManagement';
 import DepartmentManagement from './pages/DepartmentManagement';
@@ -14,7 +14,7 @@ import ProfileSetup from './pages/ProfileSetup';
 import LocationSettings from './pages/LocationSettings';
 import BankManagement from './pages/BankManagement';
 import AttendanceManagementByDate from './pages/AttendanceManagementByDate';
-import { LanguageProvider } from './utils/languageContext';
+import { LanguageProvider } from './lib/languageContext';
 
 function App() {
   return (
@@ -149,7 +149,7 @@ function AppContent() {
         />
         <Route 
           path="/dashboard" 
-          element={session ? (userRole === 'admin' ? <Navigate to="/admin" replace /> : <Dashboard />) : <Navigate to="/login" replace />} 
+          element={session ? <Dashboard /> : <Navigate to="/login" replace />}
         />
         <Route 
           path="/profile-setup" 
@@ -161,7 +161,7 @@ function AppContent() {
         />
         <Route 
           path="/admin" 
-          element={session && userRole === 'admin' ? <AdminPanel /> : <Navigate to={session ? "/dashboard" : "/login"} replace />} 
+          element={session && userRole === 'admin' ? <AdminDashboard /> : <Navigate to={session ? "/dashboard" : "/login"} replace />}
         />
         <Route 
           path="/admin/users" 

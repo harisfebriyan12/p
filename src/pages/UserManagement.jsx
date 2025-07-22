@@ -44,7 +44,7 @@ import {
   Zap,
   Sparkles
 } from 'lucide-react';
-import { supabase } from '../utils/supabaseClient';
+import { supabase } from '../api/supabaseClient';
 import AdminSidebar from '../components/AdminSidebar';
 import ProfileModal from '../components/ProfileModal';
 import WarningLetterGenerator from '../components/WarningLetterGenerator';

@@ -19,7 +19,7 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
-import { supabase } from '../utils/supabaseClient';
+import { supabase } from '../api/supabaseClient';
 import AdminSidebar from '../components/AdminSidebar';
 
 const AttendanceManagementByDate = () => {
